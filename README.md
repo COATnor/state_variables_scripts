@@ -1,2 +1,2 @@
-# data_analysis_scripts
-Data analysis scripts
+# State variable scripts
+This repository contains scripts for calculating COAT state variables.
