@@ -8,15 +8,11 @@
 ## this script is an example for calculating a the state variable
 
 ## the script downloads the dataset 'V_air_temperature_snowbed' from the COAT dataportal
-## calculates the tsate variable 
-## plots snowmelt of new years to visually check if the calculated date looks correct
+## calculates the state variable and plots snowmelt of new years to visually check if the calculated date looks correct
 ## creates a new version of the state variable
 ## uploads the state variable to the COAT dataportal
 
-## snow melt is calculated as the first day with a daily mean temperature over 1.1 deg C
-## if the loggers a lying in melt water, temperatures often rise over 1.1 deg C and then stay constant at around 0 deg C for another couple of days
-## some loggers did not reach a daily mean temperature over 1.1 deg C before they were collected. However, these loggers were collected just after the snow melted.
-## Thus, the date when the loggers were collected will be used as the date of snow melt
+## The part of the script that calculates the state variable differs for every dataset and has to be adapted
 
 ## the development version of the ckanr package has to be installed (remotes::install_github("ropensci/ckanr"))
 
@@ -98,10 +94,10 @@ for (i in 1:length(filenames2)) {
 
 
 ## ---------------------------------- ##
-## CALCULATE SNOWMELT
+## CALCULATE STATE VARIABLE
 ## ---------------------------------- ##
 
-## snowmelt will be calculated per site and year as described above
+## this part has to be changed according to the dataset 
 
 years <- unlist(map(mylist, function(x) unique(x$t_year)))
 snowmelt <- c()
