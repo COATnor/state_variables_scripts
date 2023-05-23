@@ -145,7 +145,7 @@ for (i in 1:length(years)) {
   snowmelt[[i]] <- arrange(snowmelt[[i]], sn_site)
 
   ## save the file to a temporary directory (necessary for uploading it)
-  state_var_names[i] <- paste0("V_snow_melt_date_logger_snowbeds_", years[i], ".txt")
+  state_var_names[i] <- paste0("C1_snow_melt_date_logger_varanger_snowbeds_", years[i], ".txt")
   write.table(snowmelt[[i]], paste(tempdir(), state_var_names[i], sep = "/"), row.names = FALSE, sep = ";")
   print(paste("state variable calculated and saved to temporary directory:", state_var_names[i]))
 }
@@ -193,7 +193,7 @@ for (i in snowbeds) {
 ## you can either create a new version of the state variable or add the data to a already existing state variable (then you can skip this part)
 
 ## serach for your dataset
-state_name <- "v_snow_melt_date-_logger_v1" # write here the name including the version of the state variable you want to add data to
+state_name <- "c1_snow_melt_date_logger_varanger_v1" # write here the name including the version of the state variable you want to add data to
 state_version <- "1" # write here the version of the state variable
 
 pkg_state <- package_search(q = list(paste("name:", state_name, sep = "")), fq = list(paste("version:", state_version, sep = "")), include_private = TRUE, include_drafts = TRUE)$results[[1]] # search for the dataset and save the results
@@ -258,7 +258,7 @@ package_create(
 ## The state variable has to be created on www.data.coat.no
 
 ## serach for your dataset
-state_name <- "v_snow_melt_date_logger_v1" # write here the name including the version of the state variable you want to add data to
+state_name <- "c1_snow_melt_date_logger_varanger_v1" # write here the name including the version of the state variable you want to add data to
 state_version <- "1" # write here the version of the state variable
 
 pkg_state <- package_search(q = list(paste("name:", state_name, sep = "")), fq = list(paste("version:", state_version, sep = "")), include_private = TRUE, include_drafts = TRUE)$results[[1]] # search for the dataset and save the results
