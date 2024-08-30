@@ -52,8 +52,8 @@ ckanr_setup(url = COAT_url, key = COAT_key) # set up the ckanr-API
 package_list()
 
 ## serach for your dataset
-name <- "v_air_temperature_snowbed_v3" # write here the name including the version of the dataset you want to download
-version <- "3" # write here the version of the dataset
+name <- "v_air_temperature_snowbed_v4" # write here the name including the version of the dataset you want to download
+version <- "4" # write here the version of the dataset
 
 pkg <- package_search(q = list(paste("name:", name, sep = "")), fq = list(paste("version:", version, sep = "")), include_private = TRUE)$results[[1]] # search for the dataset and save the results
 urls <- pkg$resources %>% sapply("[[", "url") # get the urls to the files included in the dataset
@@ -143,12 +143,23 @@ for (i in 1:length(years)) {
   }
 
   snowmelt[[i]] <- arrange(snowmelt[[i]], sn_site)
+  
+  ## set snow melt date to NA if logger stopped logging too early
+  if (years[i] == "2019") snowmelt[[i]]$t_date_snowmelt[snowmelt[[i]]$sn_site == "vj_be_sn_11"] <- NA 
+  
+  ## correct snowmelt (after inspecting calculated snow melt dates visually)
+  if (years[i] == "2023") snowmelt[[i]]$t_date_snowmelt[snowmelt[[i]]$sn_site == "ko_kj_sn_8"] <- "2023-05-26"
 
   ## save the file to a temporary directory (necessary for uploading it)
   state_var_names[i] <- paste0("C1_snow_melt_date_logger_varanger_snowbeds_", years[i], ".txt")
   write.table(snowmelt[[i]], paste(tempdir(), state_var_names[i], sep = "/"), row.names = FALSE, sep = ";")
   print(paste("state variable calculated and saved to temporary directory:", state_var_names[i]))
 }
+
+## check if snow melt date and year match
+snowmelt %>% do.call(rbind, .) %>% 
+  filter(t_year != year(ymd(t_date_snowmelt)))
+
 
 
 ## ---------------------------------- ##
@@ -157,7 +168,7 @@ for (i in 1:length(years)) {
 
 ## plot data of new years to check if the snow melt date looks correct (you don't need to plot old years, they have been checked already)
 
-year <- 2022
+year <- 2023
 
 x <- which(years == year)
 
@@ -190,6 +201,8 @@ for (i in snowbeds) {
 ## CREATE A NEW VERSION OF THE STATE VARIABLE
 ## ---------------------------------- ##
 
+
+## THIS DOES NOT WORK AT THE MOMENT -> associated dataset not included when creating the new version in R -> create the new version manually on data.coat.no
 ## you can either create a new version of the state variable or add the data to a already existing state variable (then you can skip this part)
 
 ## serach for your dataset
@@ -200,12 +213,12 @@ pkg_state <- package_search(q = list(paste("name:", state_name, sep = "")), fq =
 pkg_state$name # check the name
 
 ## modify metadata of the state variable
-name_new <- "new_test_state_variable_v2" # write here the name of the new version (for example change v1 to v2)
+name_new <- "c1_snow_melt_date_logger_varanger_v2" # write here the name of the new version (for example change v1 to v2)
 version_new <- "2" # write here the new version
-end_new <- "2021-08-31" # wirte here the (new) end date of the dataset
+end_new <- "2023-08-31" # wirte here the (new) end date of the dataset
 
 pkg_state$datasets # check with which dataset the current version of the state variable is associated
-datasets_new <- "v_air_temperature_snowbed_v2" # write here the name (inlcuding the version) of the dataset the should be associated with the new version of the state variable
+datasets_new <- "v_air_temperature_snowbed_v4" # write here the name (inlcuding the version) of the dataset the should be associated with the new version of the state variable
 
 # These are the typlical modifications when creating a new version of a state variable before adding data of another year
 # other modification can be made if necessary
@@ -220,6 +233,7 @@ for (i in 1:length(pkg$tags)) {
 package_create(
   name = name_new,
   title = pkg_state$title,
+  datasets = datasets_new,
   private = TRUE, # this is default
   tags = new_tags,
   author = pkg_state$author,
@@ -258,8 +272,8 @@ package_create(
 ## The state variable has to be created on www.data.coat.no
 
 ## serach for your dataset
-state_name <- "c1_snow_melt_date_logger_varanger_v1" # write here the name including the version of the state variable you want to add data to
-state_version <- "1" # write here the version of the state variable
+state_name <- "c1_snow_melt_date_logger_varanger_v2" # write here the name including the version of the state variable you want to add data to
+state_version <- "2" # write here the version of the state variable
 
 pkg_state <- package_search(q = list(paste("name:", state_name, sep = "")), fq = list(paste("version:", state_version, sep = "")), include_private = TRUE, include_drafts = TRUE)$results[[1]] # search for the dataset and save the results
 filenames_state <- pkg_state$resources %>% sapply("[[", "name") # get the filenames
