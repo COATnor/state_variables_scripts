@@ -102,32 +102,43 @@ years_ko <- 2016:2022  # komagdalen lemming blocks
 years_vj <- 2019:2022  # vestre jakobselv lemming blocks
 years_rv <- 2021:2022  # river valleys
 
+## specify filenames
+names_class_lb <- c(paste0("V_rodents_cameratraps_image_classification_lemming_blocks_komagdalen_", years_ko, ".txt"),
+                    paste0("V_rodents_cameratraps_image_classification_lemming_blocks_vestre_jakobselv_", years_vj, ".txt"))
+
+names_meta_lb <- c(paste0("V_rodents_cameratraps_image_metadata_lemming_blocks_komagdalen_", years_ko, ".txt"),
+                    paste0("V_rodents_cameratraps_image_metadata_lemming_blocks_vestre_jakobselv_", years_vj, ".txt"))
+
+names_class_rv <- c(paste0("V_rodents_cameratraps_image_classification_intensive_quadrats_komagdalen_", years_rv, ".txt"),
+                    paste0("V_rodents_cameratraps_image_classification_intensive_quadrats_vestre_jakobselv_", years_rv, ".txt"))
+
+names_meta_rv <- c(paste0("V_rodents_cameratraps_image_metadata_intensive_quadrats_komagdalen_", years_rv, ".txt"),
+                   paste0("V_rodents_cameratraps_image_metadata_intensive_quadrats_vestre_jakobselv_", years_rv, ".txt"))
+
+
 ## download image classification and metadata for lemming blocks
 classification_lb_list <- download_coat_data(COAT_key = Sys.getenv("api_COAT"),
                                          name = "v_rodents_cameratraps_image_classification_lemming_blocks_v3",
                                          version = 3, 
-                                         filenames = c(paste0("V_rodents_cameratraps_image_classification_lemming_blocks_komagdalen_", years_ko, ".txt"),
-                                                       paste0("V_rodents_cameratraps_image_classification_lemming_blocks_vestre_jakobselv_", years_vj, ".txt"))) 
+                                         filenames = names_class_lb) 
 
 metadata_lb_list <- download_coat_data(COAT_key = Sys.getenv("api_COAT"),
                                              name = "v_rodents_cameratraps_image_metadata_lemming_blocks_v3",
                                              version = 3, 
-                                             filenames = c(paste0("V_rodents_cameratraps_image_metadata_lemming_blocks_komagdalen_", years_ko, ".txt"),
-                                                           paste0("V_rodents_cameratraps_image_metadata_lemming_blocks_vestre_jakobselv_", years_vj, ".txt"))) 
+                                             filenames = names_meta_lb) 
 
 
 ## download image classification and metadata for river valleys
 classification_rv_list <- download_coat_data(COAT_key = Sys.getenv("api_COAT"),
                                              name = "v_rodents_cameratraps_image_classification_intensive_quadrats_v2",
                                              version = 2, 
-                                             filenames = c(paste0("V_rodents_cameratraps_image_classification_intensive_quadrats_komagdalen_", years_rv, ".txt"),
-                                                           paste0("V_rodents_cameratraps_image_classification_intensive_quadrats_vestre_jakobselv_", years_rv, ".txt"))) 
+                                             filenames = names_class_rv) 
 
 metadata_rv_list <- download_coat_data(COAT_key = Sys.getenv("api_COAT"),
                                        name = "v_rodents_cameratraps_image_metadata_intensive_quadrats_v2",
                                        version = 2, 
-                                       filenames = c(paste0("V_rodents_cameratraps_image_metadata_intensive_quadrats_komagdalen_", years_rv, ".txt"),
-                                                     paste0("V_rodents_cameratraps_image_metadata_intensive_quadrats_vestre_jakobselv_", years_rv, ".txt"))) 
+                                       filenames = names_meta_rv) 
+
 
 
 ## ---------------------------------- ##
@@ -139,6 +150,7 @@ lb_processed <- c()
 
 for (i in 1:length(classification_lb_list)) {
   lb_processed[[i]] <- preprocess_classifications(dat_name = classification_lb_list[[i]], meta_name = metadata_lb_list[[i]], is.dir = FALSE)
+  lb_processed[[i]]$t_year <- sub(".*_(\\d{4})\\.txt$", "\\1", names_class_lb[i])  # add year
 }
 
 lb_dat <- do.call(rbind, lb_processed)
@@ -149,6 +161,7 @@ rv_processed <- c()
 
 for (i in 1:length(classification_rv_list)) {
   rv_processed[[i]] <- preprocess_classifications(dat_name = classification_rv_list[[i]], meta_name = metadata_rv_list[[i]], is.dir = FALSE)
+  rv_processed[[i]]$t_year <- sub(".*_(\\d{4})\\.txt$", "\\1", names_class_rv[i])  # add year
 }
 
 rv_dat <- do.call(rbind, rv_processed)
@@ -156,7 +169,8 @@ rv_dat <- do.call(rbind, rv_processed)
 ## ko 2022 -> needs checking because of one time lapse image with a mink -> is ok
 
 
-
+## combine both files
+dat_all <- rbind(lb_dat, rv_dat)
 
 
 
@@ -164,89 +178,50 @@ rv_dat <- do.call(rbind, rv_processed)
 ## CALCULATE STATE VARIABLE
 ## ---------------------------------- ##
 
-## this part has to be changed according to the dataset 
-
-years <- unlist(map(mylist, function(x) unique(x$t_year)))
-snowmelt <- c()
-state_var_names <- c()
+years <- unique(dat_all$t_year) 
 
 for (i in 1:length(years)) {
-  ## calculate snowmelt (first day with daily mean temp over 1.1 deg C)
-  snowmelt[[i]] <- mylist[[i]] %>%
-    group_by(sn_region, sn_locality, sn_section, sc_type_of_sites_ecological, sn_site, sn_plot, t_year, t_date) %>%
-    summarise(mean_temp = mean(v_temperature, na.rm = TRUE)) %>%
-    filter(mean_temp > 1.1) %>%
-    filter(grepl(years[i], t_date)) %>%
-    group_by(sn_region, sn_locality, sn_section, sc_type_of_sites_ecological, sn_site, sn_plot, t_year) %>%
-    summarise(t_date_snowmelt = min(t_date))
+  
+  ## filter data per year
+  dat_year <- filter(dat_all, t_year == years[i])
+  
+  ## calculate number of passings per week
+  dat_week <- dat_year %>% mutate(t_date = ymd(t_date)) %>% 
+    filter(!is.na(t_date)) %>% 
+    mutate(t_week = week(ymd(t_date)), t_year = year(t_date)) %>% 
+    mutate(t_year_week = paste(t_year, t_week, sep = "_")) %>% 
+    mutate(t_year_week = factor(t_year_week, levels = unique(t_year_week))) %>% 
+    dplyr::group_by(sn_region, sn_locality, sc_type_of_sites_ecological, sn_site, t_year, t_week, t_year_week, v_class_id) %>% 
+    dplyr::summarise(v_abundance = sum(v_presence, na.rm = TRUE)) %>% 
+    arrange(sn_site, t_year_week)
+  
+  ## keep only mustelids
+  dat_mustelid <- dat_week %>%  filter(v_class_id %in% c("mus_erm", "mus_niv"))
 
-  ## add sites where the snow just melted before the logger was collected
-  ## temperature didn't start to rise for these loggers and the snowmelt date will be set to the date when the logger was collected (one day after the last registered date)
-  missing <- unique(mylist[[i]]$sn_site)[!unique(mylist[[i]]$sn_site) %in% unique(snowmelt[[i]]$sn_site)]
-
-  if (length(missing) > 0) {
-    add <- mylist[[i]][mylist[[i]]$sn_site %in% missing, 1:7] %>%
-      group_by(sn_region, sn_locality, sn_section, sc_type_of_sites_ecological, sn_site, sn_plot) %>%
-      summarise(t_date_snowmelt = max(t_date)) %>%
-      mutate(t_date_snowmelt = as.character(ymd(t_date_snowmelt) + days(1))) %>%
-      add_column(t_year = years[i])
-    snowmelt[[i]] <- rbind(snowmelt[[i]], add)
-  }
-
-  ## add sites where the logger was not found/did not work with NA for t_snowmelt_date
-  pot.sites <- aux$sn_site[is.na(aux$year_last) | aux$year_last >= years[i]]
-  missing <- pot.sites[!pot.sites %in% snowmelt[[i]]$sn_site]
-
-  if (length(missing) > 0) {
-    add <- aux %>%
-      filter(sn_site %in% missing) %>%
-      select(sn_region, sn_locality, sn_section, sn_site) %>%
-      add_column(sc_type_of_sites_ecological = "snowbed", sn_plot = 2, t_date_snowmelt = NA, t_year = years[i])
-    snowmelt[[i]] <- rbind(snowmelt[[i]], add)
-  }
-
-  snowmelt[[i]] <- arrange(snowmelt[[i]], sn_site)
-
+  
+  
+  
+  ## inculde t_year_week??
+  ## one file per data year (or calender year)
+  
+  
+  
+  
   ## save the file to a temporary directory (necessary for uploading it)
-  state_var_names[i] <- paste0("state_variable_snomelt_snowbed_", years[i], ".txt")
-  write.table(snowmelt[[i]], paste(tempdir(), state_var_names[i], sep = "/"), row.names = FALSE, sep = ";")
-  print(paste("state variable calculated and saved to temporary directory:", state_var_names[i]))
+  #state_var_names[i] <- paste0("state_variable_snomelt_snowbed_", years[i], ".txt")
+  #write.table(snowmelt[[i]], paste(tempdir(), state_var_names[i], sep = "/"), row.names = FALSE, sep = ";")
+  #print(paste("state variable calculated and saved to temporary directory:", state_var_names[i]))
+  
+  ## 
+  out.dir <- "C:/Users/hanna/Box/COAT/Modules/Small rodent module/state_variable_developement/mustelide_abundance/data"
+  new_name <- paste0("state_variable_mustelid_abundance_", years[i], ".txt")
+  write.table(dat_mustelid, paste(out.dir, new_name, sep = "/"), row.names = FALSE, sep = ";")
+  
+  
 }
 
 
-## ---------------------------------- ##
-## PLOT SNOW MELT
-## ---------------------------------- ##
 
-## plot data of new years to check if the snow melt date looks correct (you don't need to plot old years, they have been checked already)
-
-year <- 2022
-
-x <- which(years == year)
-
-snowmelt_x <- snowmelt[[x]]
-myfile_x <- mylist[[x]]
-
-snowbeds <- unique(snowmelt_x$sn_site)
-
-for (i in snowbeds) {
-  ## prepare snowmelt data
-  dat <- snowmelt_x %>%
-    subset(sn_site == i) %>%
-    mutate(t_date_snowmelt = ymd(t_date_snowmelt))
-
-  if (is.na(dat$t_date_snowmelt)) next
-
-  ## prepare temperature data
-  temp_dat <- myfile_x %>%
-    subset(sn_site == i) %>%
-    mutate(t_date <- ymd(t_date)) %>%
-    subset(t_date > ymd(paste0(year, "04_30")))
-
-  ## plot temperature data and snowmelt date
-  plot(v_temperature ~ ymd_hms(t_bintime), dat = temp_dat, type = "l", lwd = 1, xlab = "", main = paste(i, year))
-  if (!is.na(dat$t_date_snowmelt)) abline(v = ymd_hms(paste(dat$t_date_snowmelt, "14:00:00")), col = "red", lwd = 2)
-}
 
 
 ## ---------------------------------- ##
