@@ -32,14 +32,6 @@ if (!require("lubridate")) install.packages("tidyverse"); library("lubridate")
 if (!require("arrow")) install.packages("tidyverse"); library("arrow")
 
 
-## setup the connection to the data portal
-COAT_url <- "https://data.coat.no/" # write here the url to the COAT data portal
-COAT_key <- Sys.getenv("API_coat") # write here your API key if you are a registered user, continue without API key if you are not registered
-# the API can be found on you page on the COAT data portal (log in and click on your name in the upper right corner of the page)
-# The use of an API key allows the user to access also non-public data
-
-ckanr_setup(url = COAT_url, key = COAT_key) # set up the ckanr-API
-
 ## download functions from github
 source("https://github.com/COATnor/data_management_scripts/blob/master/download_parquet_files_from_coat_data_portal.R?raw=TRUE")
 source("https://github.com/COATnor/data_preprocessing_scripts/blob/master/function_preprocessing_image_classifications_small_mamma_camara_traps.R?raw=TRUE")
@@ -209,7 +201,7 @@ for (i in 1:length(years)) {
   dat_mustelid <- dat_week %>%  filter(v_class_id %in% c("mus_erm", "mus_niv"))
   
   ## save the file to a temporary directory (necessary for uploading it)
-  state_var_names[i] <- paste0("V37_special_predators_mustelid_abundance_", years[i], ".txt")
+  state_var_names[i] <- paste0("V37_specialist_predators_mustelid_abundance_", years[i], ".txt")
   write.table(dat_mustelid, paste(tempdir(), state_var_names[i], sep = "/"), row.names = FALSE, sep = ";")
   print(paste("state variable calculated and saved to temporary directory:", state_var_names[i]))
   
@@ -229,7 +221,7 @@ for (i in 1:length(years)) {
 ## you can either create a new version of the state variable or add the data to a already existing state variable (then you can skip this part)
 
 ## serach for your dataset
-state_name <- "v37_special_predators_mustelid_abundance_v1" # write here the name including the version of the state variable you want to add data to
+state_name <- "v37_specialist_predators_mustelid_abundance_v1" # write here the name including the version of the state variable you want to add data to
 state_version <- "1" # write here the version of the state variable
 
 pkg_state <- package_search(q = list(paste("name:", state_name, sep = "")), fq = list(paste("version:", state_version, sep = "")), include_private = TRUE, include_drafts = TRUE)$results[[1]] # search for the dataset and save the results
@@ -294,7 +286,7 @@ package_create(
 ## The state variable has to be created on www.data.coat.no
 
 ## serach for your dataset
-state_name <- "v37_special_predators_mustelid_abundance_v1" # write here the name including the version of the state variable you want to add data to
+state_name <- "v37_specialist_predators_mustelid_abundance_v1" # write here the name including the version of the state variable you want to add data to
 state_version <- "1" # write here the version of the state variable
 
 pkg_state <- package_search(q = list(paste("name:", state_name, sep = "")), fq = list(paste("version:", state_version, sep = "")), include_private = TRUE, include_drafts = TRUE)$results[[1]] # search for the dataset and save the results
