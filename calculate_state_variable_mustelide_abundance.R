@@ -1,18 +1,17 @@
 #### ------------------------------------------------------------------------------------------------------------ ####
-### CALCULATE STATE VARIABLE - EXAMPLE
+### CALCULATE STATE VARIABLE - V37_specialist_predators_mustelide_abundance
 ### Date: 17.11.2022
 ### Author: Hanna Böhner
 #### ------------------------------------------------------------------------------------------------------------ ####
 
 
-## this script is an example for calculating a the state variable
+## this script is used to calculate the state variable V37_specialist_predators_mustelide_abundance
 
-## the script downloads the dataset 'V_air_temperature_snowbed' from the COAT dataportal
-## calculates the state variable and plots snowmelt of new years to visually check if the calculated date looks correct
+## the script downloads the camera trapping datasets from the COAT dataportal
+## preprocesses the data to keep only one motion sensor image per trigger
+## calculates abundance of stoats and least weasels as number of passings per week
 ## creates a new version of the state variable
 ## uploads the state variable to the COAT dataportal
-
-## The part of the script that calculates the state variable differs for every dataset and has to be adapted
 
 ## the development version of the ckanr package has to be installed (remotes::install_github("ropensci/ckanr"))
 

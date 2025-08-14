@@ -1,5 +1,5 @@
 #### ------------------------------------------------------------------------------------------------------------ ####
-### CALCULATE STATE VARIABLE - V33_rodents_norwegian_lemming_abundance_intensive
+### CALCULATE STATE VARIABLE - V85_snowbed_dwarf_shrub_abundance_intensive
 ### Date: 17.11.2022
 ### Author: Hanna Böhner
 #### ------------------------------------------------------------------------------------------------------------ ####
@@ -93,165 +93,29 @@ download_coat_data <- function(COAT_key = COAT_key,
 ## DOWNLOAD DATA
 ## ---------------------------------- ##
 
-## DOWNLOAD SNAP TRAP DATA --------
-
 ## define years
-years <- 2005:2020
+years <- 2009:2024
 
 ## specify filenames
-names_snap_trap <- paste0("V_rodents_snaptrapping_abundance_intensive_", years, ".txt")
+filenames <- paste0("V_snowbed_shrub_abundance_intensive_", years, ".txt")
 
 ## download data
-snap_list <- download_coat_data(COAT_key = Sys.getenv("api_COAT"),
-                                name = "v_rodents_snaptrapping_abundance_intensive_v3",
-                                version = 3,
-                                filenames = names_snap_trap)
-
-## add year to all files
-for (i in 1:length(years)) {
-  snap_list[[i]]$t_year <- years[[i]]
-}
-
-## combine all files
-snap_dat <- do.call(rbind, snap_list)
-
-
-## DOWNLOAD CAMERA TRAP DATA --------
-
-## define year(s) for which the data should be downloaded
-years_ko <- 2016:2024  # komagdalen lemming blocks
-years_vj <- 2019:2024  # vestre jakobselv lemming blocks
-years_rv <- 2021:2024  # river valleys
-
-## specify filenames
-names_class_lb <- c(paste0("V_rodents_cameratraps_image_classification_lemming_blocks_komagdalen_", years_ko, ".parquet"),
-                    paste0("V_rodents_cameratraps_image_classification_lemming_blocks_vestre_jakobselv_", years_vj, ".parquet"))
-
-names_meta_lb <- c(paste0("V_rodents_cameratraps_image_metadata_lemming_blocks_komagdalen_", years_ko, ".parquet"),
-                    paste0("V_rodents_cameratraps_image_metadata_lemming_blocks_vestre_jakobselv_", years_vj, ".parquet"))
-
-names_class_rv <- c(paste0("V_rodents_cameratraps_image_classification_intensive_quadrats_komagdalen_", years_rv, ".parquet"),
-                    paste0("V_rodents_cameratraps_image_classification_intensive_quadrats_vestre_jakobselv_", years_rv, ".parquet"))
-
-names_meta_rv <- c(paste0("V_rodents_cameratraps_image_metadata_intensive_quadrats_komagdalen_", years_rv, ".parquet"),
-                   paste0("V_rodents_cameratraps_image_metadata_intensive_quadrats_vestre_jakobselv_", years_rv, ".parquet"))
-
-
-## download image classification and metadata for lemming blocks
-classification_lb_list <- download_coat_parquet(COAT_key = Sys.getenv("api_COAT"),
-                                         name = "v_rodents_cameratraps_image_classification_lemming_blocks_v4",
-                                         version = 4, 
-                                         filenames = names_class_lb) 
-
-metadata_lb_list <- download_coat_parquet(COAT_key = Sys.getenv("api_COAT"),
-                                             name = "v_rodents_cameratraps_image_metadata_lemming_blocks_v4",
-                                             version = 4, 
-                                             filenames = names_meta_lb) 
-
-
-## download image classification and metadata for river valleys
-classification_rv_list <- download_coat_parquet(COAT_key = Sys.getenv("api_COAT"),
-                                             name = "v_rodents_cameratraps_image_classification_intensive_quadrats_v3",
-                                             version = 3, 
-                                             filenames = names_class_rv) 
-
-metadata_rv_list <- download_coat_parquet(COAT_key = Sys.getenv("api_COAT"),
-                                       name = "v_rodents_cameratraps_image_metadata_intensive_quadrats_v3",
-                                       version = 3, 
-                                       filenames = names_meta_rv) 
-
-
-
-## ---------------------------------- ##
-## PREPROCESS CAMERA TRAP DATA 
-## ---------------------------------- ##
-
-## lemming blocks
-lb_processed <- c()
-
-for (i in 1:length(classification_lb_list)) {
-  lb_processed[[i]] <- preprocess_classifications(dat_name = classification_lb_list[[i]], meta_name = metadata_lb_list[[i]], is.dir = FALSE)
-  lb_processed[[i]]$t_year <- sub(".*_(\\d{4})\\.parquet$", "\\1", names_class_lb[i])  # add year
-}
-
-## ko 2024 -> 2 missing images -> all classes NA -> ok
-## vj 2023 -> image with tow animals -> ok
-
-lb_dat <- do.call(rbind, lb_processed)
-
-
-## river valleys
-rv_processed <- c()
-
-for (i in 1:length(classification_rv_list)) {
-  rv_processed[[i]] <- preprocess_classifications(dat_name = classification_rv_list[[i]], meta_name = metadata_rv_list[[i]], is.dir = FALSE)
-  rv_processed[[i]]$t_year <- sub(".*_(\\d{4})\\.parquet$", "\\1", names_class_rv[i])  # add year
-}
-
-rv_dat <- do.call(rbind, rv_processed)
-
-## ko 2022 -> needs checking because of one time lapse image with a mink -> is ok
-
-
-## combine both files
-cam_dat <- rbind(lb_dat, rv_dat)
-
+dat_list <- download_coat_data(COAT_key = Sys.getenv("api_COAT"),
+                                name = "v_snowbed_shrub_abundance_intensive_v6",
+                                version = 6,
+                                filenames = filenames)
 
 
 ## ---------------------------------- ##
 ## CALCULATE STATE VARIABLE
 ## ---------------------------------- ##
 
-## LEMMING ABUNDANCE FROM SANP TRAPPING ----------
-
-years <- sort(unique(c(cam_dat$t_year, snap_dat$t_year))) 
 state_var_names <- c()
 
 for (i in 1:length(years)) {
   
-  ## filter data per year
-  snap_year <- filter(snap_dat, t_year == years[i])
-  cam_year <- filter(cam_dat, t_year == years[i])
-  
-  ## calculate lemming abundance from snap traps
-  if (nrow(snap_year) != 0) {
-    snap_lem <- snap_year %>%  filter(v_species == "lem_lem") %>% 
-      mutate(t_date = ymd(t_date)) %>% 
-      group_by(sn_region, sn_locality, sn_section, sn_site, sc_type_of_sites_ecological, t_year, t_season, v_species) %>% 
-      mutate(t_date = min(t_date)) %>% 
-      group_by(sn_region, sn_locality, sn_section, sn_site, sc_type_of_sites_ecological, t_year, t_season, t_date, v_species) %>% 
-      summarise(v_abundance = sum(v_abundance, na.rm = TRUE)) %>% 
-      mutate(v_abundance = log(((v_abundance/24)*100)+0.1)) %>% 
-      mutate(t_week = week(t_date)) %>% 
-      ungroup() %>% 
-      mutate(v_method = "snap_trap") %>% 
-      select(sn_region, sn_locality, sn_section, sc_type_of_sites_ecological, sn_site, t_year, t_week, v_method, v_species, v_abundance)
-    
-  }
-  
-  ## calculate lemming abundance from camera traps
-  if (nrow(cam_year) != 0) {
-    cam_lem <- cam_year %>% filter(v_class_id == "lem_lem") %>% 
-    mutate(t_date = ymd(t_date)) %>% 
-      filter(!is.na(t_date)) %>% 
-      mutate(t_week = week(ymd(t_date)), t_year = year(t_date)) %>% 
-      mutate(t_year_week = paste(t_year, t_week, sep = "_")) %>% 
-      mutate(t_year_week = factor(t_year_week, levels = unique(t_year_week))) %>% 
-      dplyr::group_by(sn_region, sn_locality, sn_section, sc_type_of_sites_ecological, sn_site, t_year, t_week, t_year_week, v_class_id) %>% 
-      dplyr::summarise(v_abundance = sum(v_presence, na.rm = TRUE)) %>% 
-      mutate(v_abundance = log(v_abundance+0.1)) %>% 
-      arrange(sn_site, t_year_week) %>% 
-      ungroup() %>% 
-      rename(v_species = v_class_id) %>% 
-      mutate(v_method = "camera_trap") %>% 
-      select(sn_region, sn_locality, sn_section, sc_type_of_sites_ecological, sn_site, t_year, t_week, v_method, v_species, v_abundance)
-  }
-  
-  ## combine data from nsap traps and camera traps
-  if (nrow(cam_year) == 0 & nrow(snap_year) != 0) dat_lem <- snap_lem
-  if (nrow(snap_year) == 0 & nrow(cam_year) != 0) dat_lem <- cam_lem
-  if (nrow(cam_year) != 0 & nrow(snap_year) != 0) dat_lem <- rbind(snap_lem, cam_lem)
-  
+  dat_new <- dat_list[[i]] %>% group_by(sn_region, sn_locality, sn_section, sn_site, sn_plot, sc_plot_treatment, t_year, v_species) %>% 
+    summarise(v_abundance = sum(v_presence, na.rm = TRUE))
   
   ## save the file to a temporary directory (necessary for uploading it)
   #state_var_names[i] <- paste0("V37_specialist_predators_mustelid_abundance_", years[i], ".txt")
@@ -259,9 +123,9 @@ for (i in 1:length(years)) {
   #print(paste("state variable calculated and saved to temporary directory:", state_var_names[i]))
   
   ## 
-  out.dir <- "C:/Users/hbo042/Box/COAT/Modules/Small rodent module/state_variable_developement/lemming_abundance/data"
-  new_name <- paste0("state_variable_lemming_abundance", years[i], ".txt")
-  write.table(dat_lem, paste(out.dir, new_name, sep = "/"), row.names = FALSE, sep = ";")
+  out.dir <- "C:/Users/hbo042/Box/COAT/Modules/Small rodent module/state_variable_developement/shrub_abundance/data"
+  new_name <- paste0("state_variable_shrub_abundance_", years[i], ".txt")
+  write.table(dat_new, paste(out.dir, new_name, sep = "/"), row.names = FALSE, sep = ";")
   
   
 }
