@@ -1,11 +1,11 @@
 #### ------------------------------------------------------------------------------------------------------------ ####
-### CALCULATE STATE VARIABLE - V37_specialist_predators_mustelide_abundance
-### Date: 17.11.2022
+### CALCULATE STATE VARIABLE - V37_specialist_predators_mustelide_abundance_intenisve
+### Date: 15.08.2025
 ### Author: Hanna Böhner
 #### ------------------------------------------------------------------------------------------------------------ ####
 
 
-## this script is used to calculate the state variable V37_specialist_predators_mustelide_abundance
+## this script is used to calculate the state variable V37_specialist_predators_mustelide_abundance_intensive
 
 ## the script downloads the camera trapping datasets from the COAT dataportal
 ## preprocesses the data to keep only one motion sensor image per trigger
@@ -32,65 +32,20 @@ if (!require("arrow")) install.packages("tidyverse"); library("arrow")
 
 
 ## download functions from github
-source("https://github.com/COATnor/data_management_scripts/blob/master/download_parquet_files_from_coat_data_portal.R?raw=TRUE")
+source("https://github.com/COATnor/data_management_scripts/blob/master/download_data_from_coat_data_portal.R?raw=TRUE")
 source("https://github.com/COATnor/data_preprocessing_scripts/blob/master/function_preprocessing_image_classifications_small_mamma_camara_traps.R?raw=TRUE")
-
-## ---------------------------------- ##
-## DEFINE FUNCTIONS
-## ---------------------------------- ##
-
-download_coat_data <- function(COAT_key = COAT_key, 
-                               name = name, 
-                               version = version,
-                               filenames = filenames,
-                               store = "session",
-                               out.dir = out.dir) {
-  
-  ## setup the connection to the data portal
-  ckanr_setup(url =  "https://data.coat.no", key = COAT_key)
-  
-  ## search for the dataset
-  pkg <- package_search(q = list(paste("name:", name, sep = "")), fq = list(paste("version:", version, sep = "")), include_private = TRUE)$results[[1]]
-  urls <- pkg$resources %>% sapply("[[", "url") # get the urls to the files included in the dataset
-  filenames_dataset <- pkg$resources %>% sapply("[[", "name") # get the filenames
-  
-  ## check if all files are available
-  if (!all(filenames %in% filenames_dataset)){
-    print("Error: files not found")
-    break
-  }
-  
-  ## urls of filenames that should be downloaded
-  chrono <- order(filenames_dataset)
-  filenames_dataset <- filenames_dataset[chrono]
-  urls <- urls[chrono]
-  
-  urls2 <- urls[which(filenames_dataset %in% filenames)]
-  
-  ## download all files 
-  mylist <- c() # empty object for the files
-  
-  for (i in 1:length(filenames)) {
-    mylist[[i]] <- ckan_fetch(urls2[i],
-                              store = store,
-                              path = paste(out.dir, name, filenames[i], sep = "/"),
-                              sep = ";",
-                              header = TRUE,
-                              format = "txt"
-    )
-  }
-  
-  #myfile <- do.call(rbind, mylist)
-  
-  return(mylist)
-}
-
-
 
 
 ## ---------------------------------- ##
 ## DOWNLOAD DATA
 ## ---------------------------------- ##
+
+## SET UP THE CONNECTION TO THE COAT DATA PORTAL
+ckanr_setup(url = "https://data.coat.no", 
+            key = Sys.getenv("api_COAT")) 
+
+
+## DOWNLOAD CAMERA TRAPPIN DATA
 
 ## define year(s) for which the data should be downloaded
 years_ko <- 2016:2024  # komagdalen lemming blocks
@@ -112,26 +67,18 @@ names_meta_rv <- c(paste0("V_rodents_cameratraps_image_metadata_intensive_quadra
 
 
 ## download image classification and metadata for lemming blocks
-classification_lb_list <- download_coat_parquet(COAT_key = Sys.getenv("api_COAT"),
-                                         name = "v_rodents_cameratraps_image_classification_lemming_blocks_v4",
-                                         version = 4, 
-                                         filenames = names_class_lb) 
+classification_lb_list <- download_coat_data(name = "v_rodents_cameratraps_image_classification_lemming_blocks_v4",
+                                             filenames = names_class_lb) 
 
-metadata_lb_list <- download_coat_parquet(COAT_key = Sys.getenv("api_COAT"),
-                                             name = "v_rodents_cameratraps_image_metadata_lemming_blocks_v4",
-                                             version = 4, 
-                                             filenames = names_meta_lb) 
+metadata_lb_list <- download_coat_data(name = "v_rodents_cameratraps_image_metadata_lemming_blocks_v4",
+                                       filenames = names_meta_lb) 
 
 
 ## download image classification and metadata for river valleys
-classification_rv_list <- download_coat_parquet(COAT_key = Sys.getenv("api_COAT"),
-                                             name = "v_rodents_cameratraps_image_classification_intensive_quadrats_v3",
-                                             version = 3, 
+classification_rv_list <- download_coat_data(name = "v_rodents_cameratraps_image_classification_intensive_quadrats_v3",
                                              filenames = names_class_rv) 
 
-metadata_rv_list <- download_coat_parquet(COAT_key = Sys.getenv("api_COAT"),
-                                       name = "v_rodents_cameratraps_image_metadata_intensive_quadrats_v3",
-                                       version = 3, 
+metadata_rv_list <- download_coat_data(name = "v_rodents_cameratraps_image_metadata_intensive_quadrats_v3",
                                        filenames = names_meta_rv) 
 
 
@@ -200,7 +147,7 @@ for (i in 1:length(years)) {
   dat_mustelid <- dat_week %>%  filter(v_class_id %in% c("mus_erm", "mus_niv"))
   
   ## save the file to a temporary directory (necessary for uploading it)
-  state_var_names[i] <- paste0("V37_specialist_predators_mustelid_abundance_", years[i], ".txt")
+  state_var_names[i] <- paste0("V37_specialist_predators_mustelid_abundance_intensive_", years[i], ".txt")
   write.table(dat_mustelid, paste(tempdir(), state_var_names[i], sep = "/"), row.names = FALSE, sep = ";")
   print(paste("state variable calculated and saved to temporary directory:", state_var_names[i]))
   
@@ -220,27 +167,27 @@ for (i in 1:length(years)) {
 ## you can either create a new version of the state variable or add the data to a already existing state variable (then you can skip this part)
 
 ## serach for your dataset
-state_name <- "v37_specialist_predators_mustelid_abundance_v1" # write here the name including the version of the state variable you want to add data to
+state_name <- "v37_specialist_predators_mustelid_abundance_intensive_v1" # write here the name including the version of the state variable you want to add data to
 state_version <- "1" # write here the version of the state variable
 
 pkg_state <- package_search(q = list(paste("name:", state_name, sep = "")), fq = list(paste("version:", state_version, sep = "")), include_private = TRUE, include_drafts = TRUE)$results[[1]] # search for the dataset and save the results
 pkg_state$name # check the name
 
 ## modify metadata of the state variable
-name_new <- "v37_special_predators_mustelid_abundance_v2" # write here the name of the new version (for example change v1 to v2)
+name_new <- "v37_specialist_predators_mustelid_abundance_intensive_v2" # write here the name of the new version (for example change v1 to v2)
 version_new <- "2" # write here the new version
-end_new <- "2021-08-31" # write here the (new) end date of the dataset
+end_new <- "2024-09-05" # write here the (new) end date of the dataset
 
 pkg_state$datasets # check with which dataset the current version of the state variable is associated
-datasets_new <- "v_air_temperature_snowbed_v2" # write here the name (inlcuding the version) of the dataset the should be associated with the new version of the state variable
+datasets_new <- "v_rodents_cameratraps_image_metadata_lemming_blocks_v4,v_rodents_cameratraps_image_classification_lemming_blocks_v4,v_rodents_cameratraps_image_classification_intensive_quadrats_v3,v_rodents_cameratraps_image_metadata_intensive_quadrats_v3" # write here the name (inlcuding the version) of the dataset the should be associated with the new version of the state variable
 
 # These are the typlical modifications when creating a new version of a state variable before adding data of another year
 # other modification can be made if necessary
 
 # modify tags (necessary to avoid a validation error)
 new_tags <- c()
-for (i in 1:length(pkg$tags)) {
-  new_tags[[i]] <- list(name = pkg$tags[[i]]$name)
+for (i in 1:length(pkg_state$tags)) {
+  new_tags[[i]] <- list(name = pkg_state$tags[[i]]$name)
 }
 
 ## create the new version
@@ -285,8 +232,8 @@ package_create(
 ## The state variable has to be created on www.data.coat.no
 
 ## serach for your dataset
-state_name <- "v37_specialist_predators_mustelid_abundance_v1" # write here the name including the version of the state variable you want to add data to
-state_version <- "1" # write here the version of the state variable
+state_name <- "v37_specialist_predators_mustelid_abundance_intensive_v2" # write here the name including the version of the state variable you want to add data to
+state_version <- "2" # write here the version of the state variable
 
 pkg_state <- package_search(q = list(paste("name:", state_name, sep = "")), fq = list(paste("version:", state_version, sep = "")), include_private = TRUE, include_drafts = TRUE)$results[[1]] # search for the dataset and save the results
 filenames_state <- pkg_state$resources %>% sapply("[[", "name") # get the filenames
