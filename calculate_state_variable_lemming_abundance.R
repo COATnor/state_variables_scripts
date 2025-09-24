@@ -112,27 +112,29 @@ metadata_rv_list <- download_coat_data(name = "v_rodents_cameratraps_image_metad
 lb_processed <- c()
 
 for (i in 1:length(classification_lb_list)) {
-  lb_processed[[i]] <- preprocess_classifications(dat_name = classification_lb_list[[i]], meta_name = metadata_lb_list[[i]], is.dir = FALSE)
-  lb_processed[[i]]$t_year <- sub(".*_(\\d{4})\\.parquet$", "\\1", names_class_lb[i])  # add year
+  lb_processed[[i]] <- preprocess_classifications(dat_name = classification_lb_list[[i]], meta_name = metadata_lb_list[[i]], is.dir = FALSE)  # keep only one image per trigger
+  lb_processed[[i]]$t_year <- sub(".*_(\\d{4})\\.parquet$", "\\1", names_class_lb[i])  # add year 
+  
+  lb_processed[[i]] <- filter_bad_quality(data = lb_processed[[i]])  # set images with bad quality to NA
 }
 
 ## ko 2024 -> 2 missing images -> all classes NA -> ok
 ## vj 2023 -> image with tow animals -> ok
 
-lb_dat <- do.call(rbind, lb_processed)
+lb_dat <- add_cameras(lb_processed, max_year = 2024)  # add missing cameras
 
 
 ## river valleys
 rv_processed <- c()
 
 for (i in 1:length(classification_rv_list)) {
-  rv_processed[[i]] <- preprocess_classifications(dat_name = classification_rv_list[[i]], meta_name = metadata_rv_list[[i]], is.dir = FALSE)
+  rv_processed[[i]] <- preprocess_classifications(dat_name = classification_rv_list[[i]], meta_name = metadata_rv_list[[i]], is.dir = FALSE)  # keep only one image per trigger
   rv_processed[[i]]$t_year <- sub(".*_(\\d{4})\\.parquet$", "\\1", names_class_rv[i])  # add year
 }
 
-rv_dat <- do.call(rbind, rv_processed)
-
 ## ko 2022 -> needs checking because of one time lapse image with a mink -> is ok
+
+rv_dat <- add_cameras(rv_processed, max_year = 2024)  # add missing cameras
 
 
 ## combine both files
@@ -180,7 +182,7 @@ for (i in 1:length(years)) {
       mutate(t_year_week = paste(t_year, t_week, sep = "_")) %>% 
       mutate(t_year_week = factor(t_year_week, levels = unique(t_year_week))) %>% 
       dplyr::group_by(sn_region, sn_locality, sn_section, sc_type_of_sites_ecological, sn_site, t_year, t_week, t_year_week, v_class_id) %>% 
-      dplyr::summarise(v_abundance = sum(v_presence, na.rm = TRUE)) %>% 
+      dplyr::summarise(v_abundance = sum(v_presence)) %>% 
       mutate(v_abundance = log(v_abundance+0.1)) %>% 
       arrange(sn_site, t_year_week) %>% 
       ungroup() %>% 
@@ -201,7 +203,7 @@ for (i in 1:length(years)) {
   
   ##
   #out.dir <- "C:/Users/hbo042/Box/COAT/Modules/Small rodent module/state_variable_developement/lemming_abundance/data"
-  #new_name <- paste0("state_variable_lemming_abundance", years[i], ".txt")
+  #new_name <- paste0("state_variable_lemming_abundance_", years[i], ".txt")
   #write.table(dat_lem, paste(out.dir, new_name, sep = "/"), row.names = FALSE, sep = ";")
   
   
