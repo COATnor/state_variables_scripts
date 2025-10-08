@@ -45,7 +45,7 @@ ckanr_setup(url = "https://data.coat.no",
             key = Sys.getenv("api_COAT")) 
 
 
-## DOWNLOAD CAMERA TRAPPIN DATA
+## DOWNLOAD CAMERA TRAPPING DATA
 
 ## define year(s) for which the data should be downloaded
 years_ko <- 2016:2024  # komagdalen lemming blocks
@@ -92,31 +92,47 @@ lb_processed <- c()
 
 for (i in 1:length(classification_lb_list)) {
   lb_processed[[i]] <- preprocess_classifications(dat_name = classification_lb_list[[i]], meta_name = metadata_lb_list[[i]], is.dir = FALSE)
+  lb_processed[[i]] <- filter_bad_quality(data = lb_processed[[i]])  # set images with bad quality to NA
   lb_processed[[i]]$t_year <- sub(".*_(\\d{4})\\.parquet$", "\\1", names_class_lb[i])  # add year
 }
 
 ## ko 2024 -> 2 missing images -> all classes NA -> ok
 ## vj 2023 -> image with tow animals -> ok
 
-lb_dat <- do.call(rbind, lb_processed)
+lb_dat <- add_cameras(lb_processed, max_year = 2024)  # add missing cameras
 
+lb_dat <- tidyr::fill(lb_dat, t_year, .direction = "down")  # fill NAs in t_year with value above
+
+## fix some years
+lb_dat$t_year[lb_dat$sn_site == "ko_kj_sn_25" & lb_dat$t_date > "2018-07-05" & lb_dat$t_date < "2019-07-11"] <- "2019"
+lb_dat$t_year[lb_dat$sn_site == "ko_ry_hu_3" & lb_dat$t_date > "2018-07-05" & lb_dat$t_date < "2019-07-08"] <- "2019"
+lb_dat$t_year[lb_dat$sn_site == "ko_ry_sn_6b" & lb_dat$t_date > "2021-07-10" & lb_dat$t_date < "2022-07-04"] <- "2022"
 
 ## river valleys
 rv_processed <- c()
 
 for (i in 1:length(classification_rv_list)) {
   rv_processed[[i]] <- preprocess_classifications(dat_name = classification_rv_list[[i]], meta_name = metadata_rv_list[[i]], is.dir = FALSE)
+  rv_processed[[i]] <- filter_bad_quality(data = rv_processed[[i]])  # set images with bad quality to NA
   rv_processed[[i]]$t_year <- sub(".*_(\\d{4})\\.parquet$", "\\1", names_class_rv[i])  # add year
 }
 
-rv_dat <- do.call(rbind, rv_processed)
-
 ## ko 2022 -> needs checking because of one time lapse image with a mink -> is ok
+
+rv_dat <- add_cameras(rv_processed, max_year = 2024)  # add missing cameras
+
+rv_dat <- tidyr::fill(rv_dat, t_year, .direction = "down")  # fill NAs in t_year with value above
+
+## fix years in meadows
+rv_dat$t_year[rv_dat$sc_type_of_sites_ecological == "meadow" & is.na(rv_dat$v_image_name) & !month(rv_dat$t_date) %in% c(7,8)] <-
+  as.numeric(rv_dat$t_year[rv_dat$sc_type_of_sites_ecological == "meadow" & is.na(rv_dat$v_image_name) & !month(rv_dat$t_date) %in% c(7,8)])+1
+
+rv_dat$t_year[rv_dat$sc_type_of_sites_ecological == "meadow" & is.na(rv_dat$v_image_name) & month(rv_dat$t_date) == 7 & day(rv_dat$t_date) < 8] <-
+  as.numeric(rv_dat$t_year[rv_dat$sc_type_of_sites_ecological == "meadow" & is.na(rv_dat$v_image_name) & month(rv_dat$t_date) == 7 & day(rv_dat$t_date) < 8])+1 
 
 
 ## combine both files
 dat_all <- rbind(lb_dat, rv_dat)
-
 
 
 ## ---------------------------------- ##
@@ -138,19 +154,21 @@ for (i in 1:length(years)) {
     mutate(t_year_week = paste(t_year, t_week, sep = "_")) %>% 
     mutate(t_year_week = factor(t_year_week, levels = unique(t_year_week))) %>% 
     dplyr::group_by(sn_region, sn_locality, sc_type_of_sites_ecological, sn_site, t_year, t_week, t_year_week, v_class_id) %>% 
-    dplyr::summarise(v_abundance = sum(v_presence, na.rm = TRUE)) %>% 
+    dplyr::summarise(v_abundance = sum(v_presence)) %>% 
     arrange(sn_site, t_year_week) %>% 
     ungroup() %>% 
+    rename(v_species = v_class_id) %>% 
     select(-t_year_week)
   
   ## keep only mustelids
-  dat_mustelid <- dat_week %>%  filter(v_class_id %in% c("mus_erm", "mus_niv"))
+  dat_mustelid <- dat_week %>%  filter(v_species %in% c("mus_erm", "mus_niv"))
   
   ## save the file to a temporary directory (necessary for uploading it)
   state_var_names[i] <- paste0("V37_specialist_predators_mustelid_abundance_intensive_", years[i], ".txt")
   write.table(dat_mustelid, paste(tempdir(), state_var_names[i], sep = "/"), row.names = FALSE, sep = ";")
   print(paste("state variable calculated and saved to temporary directory:", state_var_names[i]))
   
+  print(unique(dat_week$t_year))
   ## 
   #out.dir <- "C:/Users/hbo042/Box/COAT/Modules/Small rodent module/state_variable_developement/mustelide_abundance/data"
   #new_name <- paste0("state_variable_mustelid_abundance_", years[i], ".txt")
@@ -194,6 +212,7 @@ for (i in 1:length(pkg_state$tags)) {
 package_create(
   name = name_new,
   title = pkg_state$title,
+  datasets = datasets_new,
   private = TRUE, # this is default
   tags = new_tags,
   author = pkg_state$author,
